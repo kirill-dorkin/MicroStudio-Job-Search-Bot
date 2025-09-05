@@ -53,23 +53,30 @@ class RotatingProxySession:
 
 
 class RequestsRotating(RotatingProxySession, requests.Session):
-    def __init__(self, proxies=None, has_retry=False, delay=1, clear_cookies=False):
+    def __init__(
+        self,
+        proxies=None,
+        has_retry=False,
+        delay=1,
+        clear_cookies=False,
+        retries=3,
+    ):
         RotatingProxySession.__init__(self, proxies=proxies)
         requests.Session.__init__(self)
         self.clear_cookies = clear_cookies
         self.allow_redirects = True
-        self.setup_session(has_retry, delay)
+        self.setup_session(has_retry, delay, retries)
 
-    def setup_session(self, has_retry, delay):
+    def setup_session(self, has_retry, delay, retries):
         if has_retry:
-            retries = Retry(
-                total=3,
-                connect=3,
-                status=3,
+            retry_cfg = Retry(
+                total=retries,
+                connect=retries,
+                status=retries,
                 status_forcelist=[500, 502, 503, 504, 429],
                 backoff_factor=delay,
             )
-            adapter = HTTPAdapter(max_retries=retries)
+            adapter = HTTPAdapter(max_retries=retry_cfg)
             self.mount("http://", adapter)
             self.mount("https://", adapter)
 
@@ -111,6 +118,7 @@ def create_session(
     has_retry: bool = False,
     delay: int = 1,
     clear_cookies: bool = False,
+    retries: int = 3,
 ) -> requests.Session:
     """
     Creates a requests session with optional tls, proxy, and retry settings.
@@ -124,6 +132,7 @@ def create_session(
             has_retry=has_retry,
             delay=delay,
             clear_cookies=clear_cookies,
+            retries=retries,
         )
 
     if ca_cert:

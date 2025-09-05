@@ -53,6 +53,7 @@ class ZipRecruiter(Scraper):
         self.delay = 5
         self.jobs_per_page = 20
         self.seen_urls = set()
+        self.max_retries = 3
 
     def scrape(self, scraper_input: ScraperInput) -> JobResponse:
         """
@@ -95,33 +96,43 @@ class ZipRecruiter(Scraper):
         params = add_params(scraper_input)
         if continue_token:
             params["continue_from"] = continue_token
-        try:
-            res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
+        for attempt in range(self.max_retries):
+            try:
+                res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
+            except Exception as e:
+                if "Proxy responded with" in str(e):
+                    log.error("Indeed: Bad proxy")
+                else:
+                    log.error(f"Indeed: {str(e)}")
+                return jobs_list, ""
 
             # Occasionally the API responds with a 403 "forbidden cf-waf"
             # when Cloudflare suspects the session. Refresh the headers and
-            # cookies once and retry before giving up.
+            # cookies and retry with backoff before giving up.
             if res.status_code == 403 and "forbidden" in res.text.lower():
                 log.warning(
                     "ZipRecruiter 403 forbidden cf-waf; refreshing session and retrying"
                 )
                 self.session.headers.update(build_headers())
                 self._get_cookies()
-                res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
+                time.sleep(self.delay * (attempt + 1))
+                continue
+
+            if res.status_code == 429:
+                log.warning(
+                    "ZipRecruiter 429 too many requests; sleeping and retrying"
+                )
+                time.sleep(self.delay * (attempt + 1))
+                continue
 
             if res.status_code not in range(200, 400):
-                if res.status_code == 429:
-                    err = "429 Response - Blocked by ZipRecruiter for too many requests"
-                else:
-                    err = f"ZipRecruiter response status code {res.status_code}"
-                    err += f" with response: {res.text}"  # ZipRecruiter likely not available in EU
+                err = f"ZipRecruiter response status code {res.status_code}"
+                err += f" with response: {res.text}"
                 log.error(err)
                 return jobs_list, ""
-        except Exception as e:
-            if "Proxy responded with" in str(e):
-                log.error(f"Indeed: Bad proxy")
-            else:
-                log.error(f"Indeed: {str(e)}")
+            break
+        else:
+            log.error("ZipRecruiter request failed after retries")
             return jobs_list, ""
 
         res_data = res.json()
