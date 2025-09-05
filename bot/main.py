@@ -7,6 +7,8 @@ import sys
 import logging
 import tempfile
 import hashlib
+import threading
+import http.server
 from typing import Dict, Any, List
 from pathlib import Path
 
@@ -188,6 +190,24 @@ def _preflight_conflict_check(token: str) -> bool:
     except Exception:
         # On network/other errors, don't block startup
         return True
+
+
+# ---- Background health check server ----
+def _start_healthcheck_server() -> None:
+    """Start a tiny HTTP server so Render detects an open port."""
+    port = int(os.getenv("PORT", "10000"))
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # type: ignore[override]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"OK")
+
+        def log_message(self, format: str, *args: Any) -> None:  # type: ignore[override]
+            return
+
+    httpd = http.server.ThreadingHTTPServer(("", port), _Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
 
 # ---- Quick search parser ----
@@ -1858,6 +1878,9 @@ def build_app() -> Application:
 def main():
     # Prevent multiple local instances
     _ensure_single_instance()
+
+    # Start background server so deployment platforms see an open port
+    _start_healthcheck_server()
 
     # Preflight: check if another poller is already running for this bot token
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
