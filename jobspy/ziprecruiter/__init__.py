@@ -117,6 +117,14 @@ class ZipRecruiter(Scraper):
         if continue_token:
             params["continue_from"] = continue_token
 
+        # Rotate headers and cookie identifiers for every page request to
+        # emulate a fresh mobile client on each call. Reusing identifiers
+        # like the ``vid`` token too many times can trigger Cloudflare's
+        # ``forbidden cf-waf`` response even if individual requests are
+        # spaced out.
+        self.session.headers.update(build_headers())
+        self._get_cookies()
+
         last_error: str | None = None
         for attempt in range(self.max_retries):
             try:
