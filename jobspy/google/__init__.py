@@ -3,8 +3,10 @@ from __future__ import annotations
 import math
 import re
 import json
+import time
 from typing import Tuple
 from datetime import datetime, timedelta
+import requests
 
 from jobspy.google.constant import headers_jobs, headers_initial, async_param
 from jobspy.model import (
@@ -48,7 +50,12 @@ class Google(Scraper):
         self.scraper_input.results_wanted = min(900, scraper_input.results_wanted)
 
         self.session = create_session(
-            proxies=self.proxies, ca_cert=self.ca_cert, is_tls=False, has_retry=True
+            proxies=self.proxies,
+            ca_cert=self.ca_cert,
+            is_tls=False,
+            has_retry=True,
+            delay=2,
+            retries=5,
         )
         forward_cursor, job_list = self._get_initial_cursor_and_jobs()
         if forward_cursor is None:
@@ -121,7 +128,18 @@ class Google(Scraper):
             query = self.scraper_input.google_search_term
 
         params = {"q": query, "udm": "8"}
-        response = self.session.get(self.url, headers=headers_initial, params=params)
+        for attempt in range(2):
+            try:
+                response = self.session.get(self.url, headers=headers_initial, params=params)
+                break
+            except requests.exceptions.RetryError:
+                log.warning(
+                    "Google request failed with too many 429 responses; sleeping and retrying"
+                )
+                time.sleep(5 * (attempt + 1))
+        else:
+            log.error("Google initial request failed after retries")
+            return None, []
 
         pattern_fc = r'<div jsname="Yust4d"[^>]+data-async-fc="([^"]+)"'
         match_fc = re.search(pattern_fc, response.text)
@@ -136,7 +154,19 @@ class Google(Scraper):
 
     def _get_jobs_next_page(self, forward_cursor: str) -> Tuple[list[JobPost], str]:
         params = {"fc": [forward_cursor], "fcv": ["3"], "async": [async_param]}
-        response = self.session.get(self.jobs_url, headers=headers_jobs, params=params)
+        for attempt in range(2):
+            try:
+                response = self.session.get(
+                    self.jobs_url, headers=headers_jobs, params=params
+                )
+                break
+            except requests.exceptions.RetryError:
+                log.warning(
+                    "Google jobs request failed with too many 429 responses; sleeping and retrying"
+                )
+                time.sleep(5 * (attempt + 1))
+        else:
+            return [], ""
         return self._parse_jobs(response.text)
 
     def _parse_jobs(self, job_data: str) -> Tuple[list[JobPost], str]:
