@@ -39,14 +39,25 @@ class ZipRecruiter(Scraper):
     api_url = "https://api.ziprecruiter.com"
 
     def __init__(
-        self, proxies: list[str] | str | None = None, ca_cert: str | None = None, user_agent: str | None = None
+        self,
+        proxies: list[str] | str | None = None,
+        ca_cert: str | None = None,
+        user_agent: str | None = None,
     ):
-        """
-        Initializes ZipRecruiterScraper with the ZipRecruiter job search url
-        """
-        super().__init__(Site.ZIP_RECRUITER, proxies=proxies)
+        """Initialize ``ZipRecruiter`` scraper."""
+
+        # Store proxy/ca cert/user agent info in base ``Scraper`` so it can be
+        # reused when the session needs to be refreshed.
+        super().__init__(
+            Site.ZIP_RECRUITER,
+            proxies=proxies,
+            ca_cert=ca_cert,
+            user_agent=user_agent,
+        )
 
         self.scraper_input = None
+
+        # Initial session setup
         self.session = create_session(proxies=proxies, ca_cert=ca_cert)
         self.session.headers.update(build_headers())
         self._get_cookies()
@@ -55,6 +66,13 @@ class ZipRecruiter(Scraper):
         self.jobs_per_page = 20
         self.seen_urls = set()
         self.max_retries = 3
+
+    def _refresh_session(self) -> None:
+        """Recreate the HTTP session with fresh headers and cookies."""
+        self.session.close()
+        self.session = create_session(proxies=self.proxies, ca_cert=self.ca_cert)
+        self.session.headers.update(build_headers())
+        self._get_cookies()
 
     def scrape(self, scraper_input: ScraperInput) -> JobResponse:
         """
@@ -99,33 +117,32 @@ class ZipRecruiter(Scraper):
             params["continue_from"] = continue_token
         for attempt in range(self.max_retries):
             try:
-                res = self.session.get(
-                    f"{self.api_url}/jobs-app/jobs", params=params
-                )
+                res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
             except Exception as e:
                 if "Proxy responded with" in str(e):
                     log.error("ZipRecruiter: Bad proxy")
                 else:
                     log.error(f"ZipRecruiter request error: {e}")
+                self._refresh_session()
                 time.sleep(self.delay * (attempt + 1))
                 continue
 
             # Occasionally the API responds with a 403 "forbidden cf-waf"
-            # when Cloudflare suspects the session. Refresh the headers and
-            # cookies and retry with backoff before giving up.
+            # when Cloudflare suspects the session. Refresh the session and
+            # retry with backoff before giving up.
             if res.status_code == 403 and "forbidden" in res.text.lower():
                 log.warning(
                     "ZipRecruiter 403 forbidden cf-waf; refreshing session and retrying"
                 )
-                self.session.headers.update(build_headers())
-                self._get_cookies()
+                self._refresh_session()
                 time.sleep(self.delay * (attempt + 1))
                 continue
 
             if res.status_code == 429:
                 log.warning(
-                    "ZipRecruiter 429 too many requests; sleeping and retrying"
+                    "ZipRecruiter 429 too many requests; refreshing session and retrying"
                 )
+                self._refresh_session()
                 time.sleep(self.delay * (attempt + 1))
                 continue
 
