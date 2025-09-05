@@ -113,9 +113,15 @@ def scrape_jobs(
 
     site_to_jobs_dict = {}
 
-    def worker(site):
-        site_val, scraped_info = scrape_site(site)
-        return site_val, scraped_info
+    def worker(site: Site) -> Tuple[str, JobResponse]:
+        try:
+            return scrape_site(site)
+        except Exception as e:
+            cap_name = site.value.capitalize()
+            site_name = "ZipRecruiter" if cap_name == "Zip_recruiter" else cap_name
+            site_name = "LinkedIn" if cap_name == "Linkedin" else cap_name
+            create_logger(site_name).error(f"scrape failed: {e}")
+            return site.value, JobResponse(jobs=[])
 
     with ThreadPoolExecutor() as executor:
         future_to_site = {

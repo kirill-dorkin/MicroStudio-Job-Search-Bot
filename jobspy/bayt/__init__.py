@@ -31,12 +31,18 @@ class BaytScraper(Scraper):
         self.scraper_input = None
         self.session = None
         self.country = "worldwide"
+        self.user_agent = user_agent
 
     def scrape(self, scraper_input: ScraperInput) -> JobResponse:
         self.scraper_input = scraper_input
         self.session = create_session(
             proxies=self.proxies, ca_cert=self.ca_cert, is_tls=False, has_retry=True
         )
+        ua = self.user_agent or (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
+        self.session.headers.update({"user-agent": ua})
         job_list: list[JobPost] = []
         page = 1
         results_wanted = (

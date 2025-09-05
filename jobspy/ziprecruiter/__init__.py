@@ -9,7 +9,7 @@ from datetime import datetime
 
 from bs4 import BeautifulSoup
 
-from jobspy.ziprecruiter.constant import headers, get_cookie_data
+from jobspy.ziprecruiter.constant import build_headers, get_cookie_data
 from jobspy.util import (
     extract_emails_from_text,
     create_session,
@@ -47,7 +47,7 @@ class ZipRecruiter(Scraper):
 
         self.scraper_input = None
         self.session = create_session(proxies=proxies, ca_cert=ca_cert)
-        self.session.headers.update(headers)
+        self.session.headers.update(build_headers())
         self._get_cookies()
 
         self.delay = 5
@@ -216,4 +216,4 @@ class ZipRecruiter(Scraper):
         Sends a session event to the API with device properties.
         """
         url = f"{self.api_url}/jobs-app/event"
-        self.session.post(url, data=get_cookie_data)
+        self.session.post(url, data=get_cookie_data())
