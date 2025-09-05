@@ -17,6 +17,9 @@ DEFAULT_SOURCES = [
     "glassdoor",
 ]
 
+# Allow more time for slower job sites before abandoning results
+SCRAPE_TIMEOUT = 15
+
 
 def _str_clean(v: Any) -> str:
     """Return safe string. Treat None/NaN as empty string; cast others to str."""
@@ -110,7 +113,7 @@ def search_jobs(
             enforce_annual_salary=True,
             verbose=0,
             request_timeout=3,
-            scrape_timeout=5,
+            scrape_timeout=SCRAPE_TIMEOUT,
         )
     except Exception as e:
         raise RuntimeError(f"JobSpy search failed: {e}")
