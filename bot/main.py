@@ -34,6 +34,17 @@ try:
 except Exception:
     pass
 
+# Python 3.13 changed contextlib.AsyncContextManager to use ``__slots__``.
+# python-telegram-bot 20.8 missed a slot for ``__polling_cleanup_cb``,
+# causing ``AttributeError`` during initialization on Python 3.13.
+# Monkey-patch the class to add the missing slot when necessary.
+from telegram.ext import _updater as _ptb_updater
+
+if "_Updater__polling_cleanup_cb" not in _ptb_updater.Updater.__slots__:
+    _ptb_updater.Updater.__slots__ = (
+        _ptb_updater.Updater.__slots__ + ("_Updater__polling_cleanup_cb",)
+    )
+
 from .texts import t, label
 from .storage import (
     get_user,
