@@ -64,7 +64,9 @@ class ZipRecruiter(Scraper):
         self.delay = 5
         self.jobs_per_page = 20
         self.seen_urls = set()
-        self.max_retries = 3
+        # Allow extra attempts with backoff since ZipRecruiter can briefly
+        # block or rate‑limit sessions.
+        self.max_retries = 5
 
     def _refresh_session(self) -> None:
         """Recreate the HTTP session with fresh headers and cookies."""
@@ -114,14 +116,17 @@ class ZipRecruiter(Scraper):
         params = add_params(scraper_input)
         if continue_token:
             params["continue_from"] = continue_token
+
+        last_error: str | None = None
         for attempt in range(self.max_retries):
             try:
                 res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
             except Exception as e:
-                if "Proxy responded with" in str(e):
+                last_error = str(e)
+                if "Proxy responded with" in last_error:
                     log.error("ZipRecruiter: Bad proxy")
                 else:
-                    log.error(f"ZipRecruiter request error: {e}")
+                    log.error(f"ZipRecruiter request error: {last_error}")
                 self._refresh_session()
                 time.sleep(self.delay * (attempt + 1))
                 continue
@@ -130,6 +135,7 @@ class ZipRecruiter(Scraper):
             # when Cloudflare suspects the session. Refresh the session and
             # retry with backoff before giving up.
             if res.status_code == 403 and "forbidden" in res.text.lower():
+                last_error = f"403 forbidden cf-waf: {res.text}"
                 log.warning(
                     "ZipRecruiter 403 forbidden cf-waf; refreshing session and retrying"
                 )
@@ -138,6 +144,7 @@ class ZipRecruiter(Scraper):
                 continue
 
             if res.status_code == 429:
+                last_error = f"429 too many requests: {res.text}"
                 log.warning(
                     "ZipRecruiter 429 too many requests; refreshing session and retrying"
                 )
@@ -148,6 +155,7 @@ class ZipRecruiter(Scraper):
             if res.status_code not in range(200, 400):
                 err = f"ZipRecruiter response status code {res.status_code}"
                 err += f" with response: {res.text}"
+                last_error = err
                 log.error(err)
                 return jobs_list, ""
             break
@@ -159,6 +167,8 @@ class ZipRecruiter(Scraper):
             # continue with whatever data was successfully collected from
             # other providers.
             err_msg = "ZipRecruiter request failed after retries"
+            if last_error:
+                err_msg += f": {last_error}"
             log.error(err_msg)
             return jobs_list, ""
 
