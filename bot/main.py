@@ -9,6 +9,7 @@ import tempfile
 import hashlib
 from typing import Dict, Any, List
 from pathlib import Path
+from weakref import WeakKeyDictionary
 
 from telegram import (
     Update,
@@ -34,15 +35,32 @@ try:
 except Exception:
     pass
 
-# Python 3.13 changed contextlib.AsyncContextManager to use ``__slots__``.
-# python-telegram-bot 20.8 missed a slot for ``__polling_cleanup_cb``,
-# causing ``AttributeError`` during initialization on Python 3.13.
-# Monkey-patch the class to add the missing slot when necessary.
+# Python 3.13 changed ``contextlib.AsyncContextManager`` to use ``__slots__``.
+# python-telegram-bot 20.8 lacks a slot for ``__polling_cleanup_cb``, which
+# triggers ``AttributeError`` during initialization on Python 3.13. Install a
+# descriptor to store the attribute in a side dictionary so that Updater can
+# initialize correctly.
 from telegram.ext import _updater as _ptb_updater
 
-if "_Updater__polling_cleanup_cb" not in _ptb_updater.Updater.__slots__:
-    _ptb_updater.Updater.__slots__ = (
-        _ptb_updater.Updater.__slots__ + ("_Updater__polling_cleanup_cb",)
+if not hasattr(_ptb_updater.Updater, "_Updater__polling_cleanup_cb"):
+    _cb_store: "WeakKeyDictionary[_ptb_updater.Updater, Any]" = WeakKeyDictionary()
+
+    class _CleanupCbDescriptor:
+        def __get__(self, instance, owner):  # type: ignore[override]
+            if instance is None:
+                return self
+            return _cb_store.get(instance)
+
+        def __set__(self, instance, value):  # type: ignore[override]
+            _cb_store[instance] = value
+
+        def __delete__(self, instance):  # type: ignore[override]
+            _cb_store.pop(instance, None)
+
+    setattr(
+        _ptb_updater.Updater,
+        "_Updater__polling_cleanup_cb",
+        _CleanupCbDescriptor(),
     )
 
 from .texts import t, label
@@ -93,23 +111,6 @@ class _ConflictFilter(logging.Filter):
 
 try:
     logging.getLogger("telegram.ext.Updater").addFilter(_ConflictFilter())
-except Exception:
-    pass
-
-
-# ---- Compatibility patch for python-telegram-bot on Python 3.13 ----
-# python-telegram-bot 20.x misses the "__polling_cleanup_cb" slot in Updater,
-# which leads to an AttributeError when running on Python 3.13 where setting
-# undeclared slot attributes is disallowed. We add the missing slot at runtime
-# so that Updater can initialize properly.
-try:
-    from telegram.ext import _updater as _ptb_updater
-
-    _slots = list(getattr(_ptb_updater.Updater, "__slots__", ()))
-    if "_Updater__polling_cleanup_cb" not in _slots:
-        _ptb_updater.Updater.__slots__ = tuple(
-            list(_ptb_updater.Updater.__slots__) + ["_Updater__polling_cleanup_cb"]
-        )
 except Exception:
     pass
 
