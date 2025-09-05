@@ -25,7 +25,10 @@ class BaytScraper(Scraper):
     band_delay = 3
 
     def __init__(
-        self, proxies: list[str] | str | None = None, ca_cert: str | None = None, user_agent: str | None = None
+        self,
+        proxies: list[str] | str | None = None,
+        ca_cert: str | None = None,
+        user_agent: str | None = None,
     ):
         super().__init__(Site.BAYT, proxies=proxies, ca_cert=ca_cert)
         self.scraper_input = None
@@ -93,7 +96,10 @@ class BaytScraper(Scraper):
         """
         try:
             url = f"{self.base_url}/en/international/jobs/{query}-jobs/?page={page}"
-            response = self.session.get(url)
+            response = self.session.get(
+                url,
+                timeout=getattr(self.scraper_input, "request_timeout", 60),
+            )
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
             job_listings = soup.find_all("li", attrs={"data-js-job": ""})

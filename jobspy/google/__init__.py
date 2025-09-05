@@ -24,7 +24,10 @@ from jobspy.google.util import log, find_job_info_initial_page, find_job_info
 
 class Google(Scraper):
     def __init__(
-        self, proxies: list[str] | str | None = None, ca_cert: str | None = None, user_agent: str | None = None
+        self,
+        proxies: list[str] | str | None = None,
+        ca_cert: str | None = None,
+        user_agent: str | None = None,
     ):
         """
         Initializes Google Scraper with the Goodle jobs search url
@@ -130,7 +133,12 @@ class Google(Scraper):
         params = {"q": query, "udm": "8"}
         for attempt in range(2):
             try:
-                response = self.session.get(self.url, headers=headers_initial, params=params)
+                response = self.session.get(
+                    self.url,
+                    headers=headers_initial,
+                    params=params,
+                    timeout=getattr(self.scraper_input, "request_timeout", 60),
+                )
                 break
             except requests.exceptions.RetryError:
                 log.warning(
@@ -157,7 +165,10 @@ class Google(Scraper):
         for attempt in range(2):
             try:
                 response = self.session.get(
-                    self.jobs_url, headers=headers_jobs, params=params
+                    self.jobs_url,
+                    headers=headers_jobs,
+                    params=params,
+                    timeout=getattr(self.scraper_input, "request_timeout", 60),
                 )
                 break
             except requests.exceptions.RetryError:
