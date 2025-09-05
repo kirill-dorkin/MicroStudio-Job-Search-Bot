@@ -9,7 +9,6 @@ import tempfile
 import hashlib
 from typing import Dict, Any, List
 from pathlib import Path
-from weakref import WeakKeyDictionary
 
 from telegram import (
     Update,
@@ -43,7 +42,8 @@ except Exception:
 from telegram.ext import _updater as _ptb_updater
 
 if not hasattr(_ptb_updater.Updater, "_Updater__polling_cleanup_cb"):
-    _cb_store: "WeakKeyDictionary[_ptb_updater.Updater, Any]" = WeakKeyDictionary()
+    # Updater doesn't support weak references, so store callbacks in a plain dict.
+    _cb_store: "Dict[_ptb_updater.Updater, Any]" = {}
 
     class _CleanupCbDescriptor:
         def __get__(self, instance, owner):  # type: ignore[override]
