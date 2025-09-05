@@ -56,17 +56,21 @@ class ZipRecruiter(Scraper):
 
         self.scraper_input = None
 
-        # Initial session setup
-        self.session = create_session(proxies=proxies, ca_cert=ca_cert)
-        self.session.headers.update(build_headers())
-        self._get_cookies()
-
+        # Retry/backoff configuration and other scraper settings must be
+        # initialised before any network requests are made. ``_get_cookies``
+        # relies on ``self.delay`` and ``self.max_retries`` so define them
+        # early to avoid ``AttributeError`` during object construction.
         self.delay = 5
         self.jobs_per_page = 20
         self.seen_urls = set()
         # Allow extra attempts with backoff since ZipRecruiter can briefly
         # block or rate‑limit sessions.
         self.max_retries = 5
+
+        # Initial session setup
+        self.session = create_session(proxies=proxies, ca_cert=ca_cert)
+        self.session.headers.update(build_headers())
+        self._get_cookies()
 
     def _refresh_session(self) -> None:
         """Recreate the HTTP session with fresh headers and cookies."""
