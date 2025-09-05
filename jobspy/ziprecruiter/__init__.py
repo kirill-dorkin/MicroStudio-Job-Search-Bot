@@ -129,7 +129,11 @@ class ZipRecruiter(Scraper):
         last_error: str | None = None
         for attempt in range(self.max_retries):
             try:
-                res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
+                res = self.session.get(
+                    f"{self.api_url}/jobs-app/jobs",
+                    params=params,
+                    timeout_seconds=getattr(self.scraper_input, "request_timeout", 60),
+                )
             except Exception as e:
                 last_error = str(e)
                 if "Proxy responded with" in last_error:
@@ -246,7 +250,11 @@ class ZipRecruiter(Scraper):
         )
 
     def _get_descr(self, job_url):
-        res = self.session.get(job_url, allow_redirects=True)
+        res = self.session.get(
+            job_url,
+            allow_redirects=True,
+            timeout_seconds=getattr(self.scraper_input, "request_timeout", 60),
+        )
         description_full = job_url_direct = None
         if res.ok:
             soup = BeautifulSoup(res.text, "html.parser")
@@ -289,7 +297,11 @@ class ZipRecruiter(Scraper):
         last_error: str | None = None
         for attempt in range(self.max_retries):
             try:
-                res = self.session.post(url, data=data)
+                res = self.session.post(
+                    url,
+                    data=data,
+                    timeout_seconds=getattr(self.scraper_input, "request_timeout", 60),
+                )
             except Exception as e:
                 last_error = str(e)
             else:

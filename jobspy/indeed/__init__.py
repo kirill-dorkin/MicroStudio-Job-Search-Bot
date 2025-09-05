@@ -28,7 +28,10 @@ log = create_logger("Indeed")
 
 class Indeed(Scraper):
     def __init__(
-        self, proxies: list[str] | str | None = None, ca_cert: str | None = None, user_agent: str | None = None
+        self,
+        proxies: list[str] | str | None = None,
+        ca_cert: str | None = None,
+        user_agent: str | None = None,
     ):
         """
         Initializes IndeedScraper with the Indeed API url
@@ -114,7 +117,7 @@ class Indeed(Scraper):
             self.api_url,
             headers=api_headers_temp,
             json=payload,
-            timeout=10,
+            timeout=getattr(self.scraper_input, "request_timeout", 60),
             verify=False,
         )
         if not response.ok:

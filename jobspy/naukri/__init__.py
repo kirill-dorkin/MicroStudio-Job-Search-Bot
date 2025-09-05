@@ -37,14 +37,18 @@ from jobspy.util import (
 
 log = create_logger("Naukri")
 
+
 class Naukri(Scraper):
     base_url = "https://www.naukri.com/jobapi/v3/search"
     delay = 3
     band_delay = 4
-    jobs_per_page = 20  
+    jobs_per_page = 20
 
     def __init__(
-        self, proxies: list[str] | str | None = None, ca_cert: str | None = None, user_agent: str | None = None
+        self,
+        proxies: list[str] | str | None = None,
+        ca_cert: str | None = None,
+        user_agent: str | None = None,
     ):
         """
         Initializes NaukriScraper with the Naukri API URL
@@ -60,7 +64,7 @@ class Naukri(Scraper):
         )
         self.session.headers.update(naukri_headers)
         self.scraper_input = None
-        self.country = "India"  #naukri is india-focused by default
+        self.country = "India"  # naukri is india-focused by default
         log.info("Naukri scraper initialized")
 
     def scrape(self, scraper_input: ScraperInput) -> JobResponse:
@@ -79,7 +83,8 @@ class Naukri(Scraper):
             scraper_input.hours_old * 3600 if scraper_input.hours_old else None
         )
         continue_search = (
-            lambda: len(job_list) < scraper_input.results_wanted and page <= 50  # Arbitrary limit
+            lambda: len(job_list) < scraper_input.results_wanted
+            and page <= 50  # Arbitrary limit
         )
 
         while continue_search():
@@ -107,7 +112,11 @@ class Naukri(Scraper):
             params = {k: v for k, v in params.items() if v is not None}
             try:
                 log.debug(f"Sending request to {self.base_url} with params: {params}")
-                response = self.session.get(self.base_url, params=params, timeout=10)
+                response = self.session.get(
+                    self.base_url,
+                    params=params,
+                    timeout=getattr(self.scraper_input, "request_timeout", 60),
+                )
                 if response.status_code not in range(200, 400):
                     err = f"Naukri API response status code {response.status_code} - {response.text}"
                     log.error(err)
@@ -145,7 +154,7 @@ class Naukri(Scraper):
                 time.sleep(random.uniform(self.delay, self.delay + self.band_delay))
                 page += 1
 
-        job_list = job_list[:scraper_input.results_wanted]
+        job_list = job_list[: scraper_input.results_wanted]
         log.info(f"Scraping completed. Total jobs collected: {len(job_list)}")
         return JobResponse(jobs=job_list)
 
@@ -157,33 +166,54 @@ class Naukri(Scraper):
         """
         title = job.get("title", "N/A")
         company = job.get("companyName", "N/A")
-        company_url = f"https://www.naukri.com/{job.get('staticUrl', '')}" if job.get("staticUrl") else None
+        company_url = (
+            f"https://www.naukri.com/{job.get('staticUrl', '')}"
+            if job.get("staticUrl")
+            else None
+        )
 
         location = self._get_location(job.get("placeholders", []))
         compensation = self._get_compensation(job.get("placeholders", []))
-        date_posted = self._parse_date(job.get("footerPlaceholderLabel"), job.get("createdDate"))
+        date_posted = self._parse_date(
+            job.get("footerPlaceholderLabel"), job.get("createdDate")
+        )
 
         job_url = f"https://www.naukri.com{job.get('jdURL', f'/job/{job_id}')}"
         raw_description = job.get("jobDescription") if full_descr else None
 
         job_type = parse_job_type(raw_description) if raw_description else None
-        company_industry = parse_company_industry(raw_description) if raw_description else None
+        company_industry = (
+            parse_company_industry(raw_description) if raw_description else None
+        )
 
         description = raw_description
-        if description and self.scraper_input.description_format == DescriptionFormat.MARKDOWN:
+        if (
+            description
+            and self.scraper_input.description_format == DescriptionFormat.MARKDOWN
+        ):
             description = markdown_converter(description)
 
         is_remote = is_job_remote(title, description or "", location)
         company_logo = job.get("logoPathV3") or job.get("logoPath")
 
         # Naukri-specific fields
-        skills = job.get("tagsAndSkills", "").split(",") if job.get("tagsAndSkills") else None
+        skills = (
+            job.get("tagsAndSkills", "").split(",")
+            if job.get("tagsAndSkills")
+            else None
+        )
         experience_range = job.get("experienceText")
         ambition_box = job.get("ambitionBoxData", {})
-        company_rating = float(ambition_box.get("AggregateRating")) if ambition_box.get("AggregateRating") else None
+        company_rating = (
+            float(ambition_box.get("AggregateRating"))
+            if ambition_box.get("AggregateRating")
+            else None
+        )
         company_reviews_count = ambition_box.get("ReviewsCount")
         vacancy_count = job.get("vacancy")
-        work_from_home_type = self._infer_work_from_home_type(job.get("placeholders", []), title, description or "")
+        work_from_home_type = self._infer_work_from_home_type(
+            job.get("placeholders", []), title, description or ""
+        )
 
         job_post = JobPost(
             id=f"nk-{job_id}",
@@ -238,7 +268,11 @@ class Naukri(Scraper):
                     return None
 
                 # Handle Indian salary formats (e.g., "12-16 Lacs P.A.", "1-5 Cr")
-                salary_match = re.match(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*(Lacs|Lakh|Cr)\s*(P\.A\.)?", salary_text, re.IGNORECASE)
+                salary_match = re.match(
+                    r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*(Lacs|Lakh|Cr)\s*(P\.A\.)?",
+                    salary_text,
+                    re.IGNORECASE,
+                )
                 if salary_match:
                     min_salary, max_salary, unit = salary_match.groups()[:3]
                     min_salary, max_salary = float(min_salary), float(max_salary)
@@ -270,7 +304,9 @@ class Naukri(Scraper):
         today = datetime.now()
         if not label:
             if created_date:
-                return datetime.fromtimestamp(created_date / 1000).date()  # Convert to date
+                return datetime.fromtimestamp(
+                    created_date / 1000
+                ).date()  # Convert to date
             return None
         label = label.lower()
         if "today" in label or "just now" in label or "few hours" in label:
@@ -280,7 +316,7 @@ class Naukri(Scraper):
             match = re.search(r"(\d+)\s*day", label)
             if match:
                 days = int(match.group(1))
-                parsed_date = (today - timedelta(days = days)).date()
+                parsed_date = (today - timedelta(days=days)).date()
                 log.debug(f"Date parsed: {days} days ago -> {parsed_date}")
                 return parsed_date
         elif created_date:
@@ -290,15 +326,29 @@ class Naukri(Scraper):
         log.debug("No date parsed")
         return None
 
-    def _infer_work_from_home_type(self, placeholders: list[dict], title: str, description: str) -> Optional[str]:
+    def _infer_work_from_home_type(
+        self, placeholders: list[dict], title: str, description: str
+    ) -> Optional[str]:
         """
         Infers work-from-home type from job data (e.g., 'Hybrid', 'Remote', 'Work from office')
         """
-        location_str = next((p["label"] for p in placeholders if p["type"] == "location"), "").lower()
-        if "hybrid" in location_str or "hybrid" in title.lower() or "hybrid" in description.lower():
+        location_str = next(
+            (p["label"] for p in placeholders if p["type"] == "location"), ""
+        ).lower()
+        if (
+            "hybrid" in location_str
+            or "hybrid" in title.lower()
+            or "hybrid" in description.lower()
+        ):
             return "Hybrid"
-        elif "remote" in location_str or "remote" in title.lower() or "remote" in description.lower():
+        elif (
+            "remote" in location_str
+            or "remote" in title.lower()
+            or "remote" in description.lower()
+        ):
             return "Remote"
-        elif "work from office" in description.lower() or not ("remote" in description.lower() or "hybrid" in description.lower()):
+        elif "work from office" in description.lower() or not (
+            "remote" in description.lower() or "hybrid" in description.lower()
+        ):
             return "Work from office"
         return None

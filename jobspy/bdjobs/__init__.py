@@ -255,7 +255,10 @@ class BDJobs(Scraper):
         :return: Dictionary with job details
         """
         try:
-            response = self.session.get(job_url, timeout=60)
+            response = self.session.get(
+                job_url,
+                timeout=getattr(self.scraper_input, "request_timeout", 60),
+            )
             if response.status_code != 200:
                 return {}
 

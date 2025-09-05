@@ -18,7 +18,7 @@ from jobspy.linkedin.util import (
     job_type_code,
     parse_job_type,
     parse_job_level,
-    parse_company_industry
+    parse_company_industry,
 )
 from jobspy.model import (
     JobPost,
@@ -51,7 +51,10 @@ class LinkedIn(Scraper):
     jobs_per_page = 25
 
     def __init__(
-        self, proxies: list[str] | str | None = None, ca_cert: str | None = None, user_agent: str | None = None
+        self,
+        proxies: list[str] | str | None = None,
+        ca_cert: str | None = None,
+        user_agent: str | None = None,
     ):
         """
         Initializes LinkedInScraper with the LinkedIn job search url
@@ -119,7 +122,7 @@ class LinkedIn(Scraper):
                 response = self.session.get(
                     f"{self.base_url}/jobs-guest/jobs/api/seeMoreJobPostings/search?",
                     params=params,
-                    timeout=10,
+                    timeout=getattr(self.scraper_input, "request_timeout", 60),
                 )
                 if response.status_code not in range(200, 400):
                     if response.status_code == 429:
@@ -250,7 +253,8 @@ class LinkedIn(Scraper):
         """
         try:
             response = self.session.get(
-                f"{self.base_url}/jobs/view/{job_id}", timeout=5
+                f"{self.base_url}/jobs/view/{job_id}",
+                timeout=getattr(self.scraper_input, "request_timeout", 60),
             )
             response.raise_for_status()
         except:

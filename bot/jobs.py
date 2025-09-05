@@ -55,11 +55,13 @@ def _to_int_safe(v: Any) -> int | None:
 def _salary_str(row: Dict[str, Any]) -> str:
     min_a = _to_int_safe(row.get("min_amount"))
     max_a = _to_int_safe(row.get("max_amount"))
+
     def _clean_str(v: Any) -> str:
         try:
             return "" if v is None or pd.isna(v) else str(v)
         except Exception:
             return str(v) if v is not None else ""
+
     currency = _clean_str(row.get("currency"))
     interval = _clean_str(row.get("interval"))
     if (min_a is not None) or (max_a is not None):
@@ -107,6 +109,7 @@ def search_jobs(
             hours_old=filters.get("hours_old"),
             enforce_annual_salary=True,
             verbose=0,
+            request_timeout=3,
         )
     except Exception as e:
         raise RuntimeError(f"JobSpy search failed: {e}")
@@ -121,7 +124,10 @@ def search_jobs(
         company = _str_clean(r.get("company")) or "—"
         location = _str_clean(r.get("location")) or "—"
         site = _str_clean(r.get("site")) or "—"
-        job_url_raw = _str_clean(r.get("job_url_direct")) or _str_clean(r.get("job_url")) or ""
+        job_url_raw = (
+            _str_clean(r.get("job_url_direct")) or _str_clean(r.get("job_url")) or ""
+        )
+
         # canonicalize url (scheme+host+path; strip query/frag; normalize www)
         def canonical_url(u: Any) -> str:
             try:
@@ -136,11 +142,14 @@ def search_jobs(
                 return f"{p.scheme}://{host}{p.path}"
             except Exception:
                 return ""
+
         job_url = canonical_url(job_url_raw)
         date_posted = r.get("date_posted")
         try:
             dp = _str_clean(date_posted)
-            date_str = datetime.strptime(dp, "%Y-%m-%d").strftime("%d.%m.%Y") if dp else "—"
+            date_str = (
+                datetime.strptime(dp, "%Y-%m-%d").strftime("%d.%m.%Y") if dp else "—"
+            )
         except Exception:
             dp = _str_clean(date_posted)
             date_str = dp if dp else "—"
@@ -150,12 +159,14 @@ def search_jobs(
         # Sanitize numeric fields to avoid NaN -> int errors downstream
         min_amount = _to_int_safe(r.get("min_amount"))
         max_amount = _to_int_safe(r.get("max_amount"))
-        salary = _salary_str({
-            "min_amount": min_amount,
-            "max_amount": max_amount,
-            "currency": r.get("currency"),
-            "interval": r.get("interval"),
-        })
+        salary = _salary_str(
+            {
+                "min_amount": min_amount,
+                "max_amount": max_amount,
+                "currency": r.get("currency"),
+                "interval": r.get("interval"),
+            }
+        )
         descr = _str_clean(r.get("description"))
         descr_short = (descr[:280] + "…") if descr and len(descr) > 300 else descr
 
@@ -168,12 +179,28 @@ def search_jobs(
                 "date_posted": date_str,
                 "job_type": job_type,
                 "remote": remote,
-                "remote_bool": True if r.get("is_remote") is True else False if r.get("is_remote") is False else None,
+                "remote_bool": (
+                    True
+                    if r.get("is_remote") is True
+                    else False if r.get("is_remote") is False else None
+                ),
                 "salary": salary,
                 "min_amount": min_amount,
                 "max_amount": max_amount,
-                "currency": r.get("currency") if (r.get("currency") is not None and not pd.isna(r.get("currency"))) else "",
-                "interval": r.get("interval") if (r.get("interval") is not None and not pd.isna(r.get("interval"))) else "",
+                "currency": (
+                    r.get("currency")
+                    if (
+                        r.get("currency") is not None and not pd.isna(r.get("currency"))
+                    )
+                    else ""
+                ),
+                "interval": (
+                    r.get("interval")
+                    if (
+                        r.get("interval") is not None and not pd.isna(r.get("interval"))
+                    )
+                    else ""
+                ),
                 "job_url": job_url,
                 "job_url_raw": job_url_raw,
                 "description": descr_short,
@@ -193,7 +220,10 @@ def search_jobs(
             deduped.append(r)
         else:
             # Fallback dedup key
-            if not any((x.get("title"), x.get("company"), x.get("location")) == key2 for x in deduped):
+            if not any(
+                (x.get("title"), x.get("company"), x.get("location")) == key2
+                for x in deduped
+            ):
                 deduped.append(r)
 
     total = len(deduped)
