@@ -37,6 +37,9 @@ def parse_location(location_name: str) -> Location | None:
 
 
 def get_cursor_for_page(pagination_cursors, page_num):
+    if not pagination_cursors:
+        return None
     for cursor_data in pagination_cursors:
         if cursor_data["pageNumber"] == page_num:
             return cursor_data["cursor"]
+    return None
