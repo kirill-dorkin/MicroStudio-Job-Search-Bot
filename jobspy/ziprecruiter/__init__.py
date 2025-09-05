@@ -29,6 +29,7 @@ from jobspy.model import (
     Site,
 )
 from jobspy.ziprecruiter.util import get_job_type_enum, add_params
+from jobspy.exception import ZipRecruiterException
 
 log = create_logger("ZipRecruiter")
 
@@ -98,13 +99,16 @@ class ZipRecruiter(Scraper):
             params["continue_from"] = continue_token
         for attempt in range(self.max_retries):
             try:
-                res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
+                res = self.session.get(
+                    f"{self.api_url}/jobs-app/jobs", params=params
+                )
             except Exception as e:
                 if "Proxy responded with" in str(e):
-                    log.error("Indeed: Bad proxy")
+                    log.error("ZipRecruiter: Bad proxy")
                 else:
-                    log.error(f"Indeed: {str(e)}")
-                return jobs_list, ""
+                    log.error(f"ZipRecruiter request error: {e}")
+                time.sleep(self.delay * (attempt + 1))
+                continue
 
             # Occasionally the API responds with a 403 "forbidden cf-waf"
             # when Cloudflare suspects the session. Refresh the headers and
@@ -132,8 +136,9 @@ class ZipRecruiter(Scraper):
                 return jobs_list, ""
             break
         else:
-            log.error("ZipRecruiter request failed after retries")
-            return jobs_list, ""
+            err_msg = "ZipRecruiter request failed after retries"
+            log.error(err_msg)
+            raise ZipRecruiterException(err_msg)
 
         res_data = res.json()
         jobs_list = res_data.get("jobs", [])
