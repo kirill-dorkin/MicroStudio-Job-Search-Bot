@@ -1,3 +1,4 @@
+# fmt: off
 from __future__ import annotations
 
 import os
@@ -81,6 +82,23 @@ class _ConflictFilter(logging.Filter):
 
 try:
     logging.getLogger("telegram.ext.Updater").addFilter(_ConflictFilter())
+except Exception:
+    pass
+
+
+# ---- Compatibility patch for python-telegram-bot on Python 3.13 ----
+# python-telegram-bot 20.x misses the "__polling_cleanup_cb" slot in Updater,
+# which leads to an AttributeError when running on Python 3.13 where setting
+# undeclared slot attributes is disallowed. We add the missing slot at runtime
+# so that Updater can initialize properly.
+try:
+    from telegram.ext import _updater as _ptb_updater
+
+    _slots = list(getattr(_ptb_updater.Updater, "__slots__", ()))
+    if "_Updater__polling_cleanup_cb" not in _slots:
+        _ptb_updater.Updater.__slots__ = tuple(
+            list(_ptb_updater.Updater.__slots__) + ["_Updater__polling_cleanup_cb"]
+        )
 except Exception:
     pass
 
@@ -1858,3 +1876,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# fmt: on
