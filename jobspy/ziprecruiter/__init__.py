@@ -97,6 +97,18 @@ class ZipRecruiter(Scraper):
             params["continue_from"] = continue_token
         try:
             res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
+
+            # Occasionally the API responds with a 403 "forbidden cf-waf"
+            # when Cloudflare suspects the session. Refresh the headers and
+            # cookies once and retry before giving up.
+            if res.status_code == 403 and "forbidden" in res.text.lower():
+                log.warning(
+                    "ZipRecruiter 403 forbidden cf-waf; refreshing session and retrying"
+                )
+                self.session.headers.update(build_headers())
+                self._get_cookies()
+                res = self.session.get(f"{self.api_url}/jobs-app/jobs", params=params)
+
             if res.status_code not in range(200, 400):
                 if res.status_code == 429:
                     err = "429 Response - Blocked by ZipRecruiter for too many requests"
