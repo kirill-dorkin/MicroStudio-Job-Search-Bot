@@ -281,4 +281,28 @@ class ZipRecruiter(Scraper):
         Sends a session event to the API with device properties.
         """
         url = f"{self.api_url}/jobs-app/event"
-        self.session.post(url, data=get_cookie_data())
+        data = get_cookie_data()
+        last_error: str | None = None
+        for attempt in range(self.max_retries):
+            try:
+                res = self.session.post(url, data=data)
+            except Exception as e:
+                last_error = str(e)
+            else:
+                if res.status_code in range(200, 400):
+                    return
+                if res.status_code == 403 and "forbidden" in res.text.lower():
+                    last_error = f"403 forbidden cf-waf: {res.text}"
+                elif res.status_code == 429:
+                    last_error = f"429 too many requests: {res.text}"
+                else:
+                    last_error = f"{res.status_code}: {res.text}"
+
+            # Rotate headers for a new device identity and retry with backoff
+            self.session.headers.update(build_headers())
+            time.sleep(self.delay * (attempt + 1))
+
+        log.warning(
+            "Failed to obtain ZipRecruiter cookies after retries%s",
+            f": {last_error}" if last_error else "",
+        )
