@@ -40,6 +40,7 @@ except Exception:
 # descriptor to store the attribute in a side dictionary so that Updater can
 # initialize correctly.
 from telegram.ext import _updater as _ptb_updater
+from telegram.ext import _jobqueue as _ptb_jobqueue
 
 if not hasattr(_ptb_updater.Updater, "_Updater__polling_cleanup_cb"):
     # Updater doesn't support weak references, so store callbacks in a plain dict.
@@ -62,6 +63,26 @@ if not hasattr(_ptb_updater.Updater, "_Updater__polling_cleanup_cb"):
         "_Updater__polling_cleanup_cb",
         _CleanupCbDescriptor(),
     )
+
+# python-telegram-bot's ``JobQueue`` tries to store a weak reference to the
+# application instance. ``Application`` in PTB 20.8 uses ``__slots__`` without a
+# ``__weakref__`` slot under Python 3.13, which makes it impossible to create a
+# weak reference and results in ``TypeError`` during initialization. Store a
+# strong reference instead so that the bot can start on Python 3.13.
+if not hasattr(_ptb_jobqueue.JobQueue.set_application, "__patched_no_weakref__"):
+    def _set_application(self, application):
+        self._application = application
+        self.scheduler.configure(**self.scheduler_configuration)
+
+    _set_application.__patched_no_weakref__ = True
+    _ptb_jobqueue.JobQueue.set_application = _set_application
+
+    def _get_application(self):
+        if self._application is None:
+            raise RuntimeError("No application was set for this JobQueue.")
+        return self._application
+
+    _ptb_jobqueue.JobQueue.application = property(_get_application)
 
 from .texts import t, label
 from .storage import (
