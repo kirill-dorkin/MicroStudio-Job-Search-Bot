@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 from typing import Tuple
 
 import pandas as pd
@@ -51,10 +51,13 @@ def scrape_jobs(
     verbose: int = 0,
     user_agent: str = None,
     request_timeout: int = 3,
+    scrape_timeout: float | None = None,
     **kwargs,
 ) -> pd.DataFrame:
     """
     Scrapes job data from job boards concurrently
+    :param scrape_timeout: Maximum seconds to wait for all sites. When set,
+        results from sites that do not finish within the timeout are ignored.
     :return: Pandas DataFrame containing job data
     """
     SCRAPER_MAPPING = {
@@ -131,9 +134,24 @@ def scrape_jobs(
             executor.submit(worker, site): site for site in scraper_input.site_type
         }
 
-        for future in as_completed(future_to_site):
-            site_value, scraped_data = future.result()
-            site_to_jobs_dict[site_value] = scraped_data
+        try:
+            for future in as_completed(future_to_site, timeout=scrape_timeout):
+                site_value, scraped_data = future.result()
+                site_to_jobs_dict[site_value] = scraped_data
+        except TimeoutError:
+            create_logger("scrape_jobs").warning(
+                f"scrape_jobs timed out after {scrape_timeout}s"
+            )
+
+        for future in future_to_site:
+            if future.done():
+                try:
+                    site_value, scraped_data = future.result()
+                    site_to_jobs_dict[site_value] = scraped_data
+                except Exception:
+                    pass
+            else:
+                future.cancel()
 
     jobs_dfs: list[pd.DataFrame] = []
 

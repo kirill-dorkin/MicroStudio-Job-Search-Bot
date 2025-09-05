@@ -110,6 +110,7 @@ def search_jobs(
             enforce_annual_salary=True,
             verbose=0,
             request_timeout=3,
+            scrape_timeout=5,
         )
     except Exception as e:
         raise RuntimeError(f"JobSpy search failed: {e}")
