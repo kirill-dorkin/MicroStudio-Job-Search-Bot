@@ -2,17 +2,26 @@ from __future__ import annotations
 
 import secrets
 import uuid
+import random
 from datetime import datetime
+
+
+USER_AGENTS = [
+    "Job Search/91.0 (iPhone; CPU iOS 16_6_1 like Mac OS X)",
+    "Job Search/90.0 (iPhone; CPU iOS 16_5 like Mac OS X)",
+    "Job Search/89.0 (Linux; Android 14; Pixel 8 Pro)",
+]
 
 
 def build_headers() -> dict[str, str]:
     """Create ZipRecruiter headers with randomized identifiers.
 
     The ZipRecruiter API is fronted by Cloudflare's WAF. Reusing
-    identifiers such as the ``vid`` token can quickly lead to requests
-    being blocked with ``forbidden cf-waf`` responses. Generating a fresh
-    random token for each session helps mimic legitimate mobile clients
-    and reduces the chance of triggering Cloudflare defenses.
+    identifiers such as the ``vid`` token or a static user agent can
+    quickly lead to requests being blocked with ``forbidden cf-waf``
+    responses. Generating fresh random values for each session helps
+    mimic legitimate mobile clients and reduces the chance of triggering
+    Cloudflare defenses.
     """
 
     # ``vid`` has historically been a random URL safe string. Generate a
@@ -26,7 +35,7 @@ def build_headers() -> dict[str, str]:
         # Random values to look like a fresh mobile client
         "x-pushnotificationid": uuid.uuid4().hex,
         "x-deviceid": str(uuid.uuid4()).upper(),
-        "user-agent": "Job Search/91.0 (iPhone; CPU iOS 16_6_1 like Mac OS X)",
+        "user-agent": random.choice(USER_AGENTS),
         "authorization": "Basic YTBlZjMyZDYtN2I0Yy00MWVkLWEyODMtYTI1NDAzMzI0YTcyOg==",
         "accept-language": "en-US,en;q=0.9",
     }
