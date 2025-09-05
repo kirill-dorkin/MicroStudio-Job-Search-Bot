@@ -29,7 +29,6 @@ from jobspy.model import (
     Site,
 )
 from jobspy.ziprecruiter.util import get_job_type_enum, add_params
-from jobspy.exception import ZipRecruiterException
 
 log = create_logger("ZipRecruiter")
 
@@ -153,9 +152,15 @@ class ZipRecruiter(Scraper):
                 return jobs_list, ""
             break
         else:
+            # If all retry attempts failed we do not want to raise an
+            # exception here, because ``scrape_jobs`` will treat it as a
+            # fatal error and abort scraping for other sites.  Instead we
+            # log the failure and return an empty result so the caller can
+            # continue with whatever data was successfully collected from
+            # other providers.
             err_msg = "ZipRecruiter request failed after retries"
             log.error(err_msg)
-            raise ZipRecruiterException(err_msg)
+            return jobs_list, ""
 
         res_data = res.json()
         jobs_list = res_data.get("jobs", [])
