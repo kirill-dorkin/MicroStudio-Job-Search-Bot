@@ -1,0 +1,11 @@
+# Ignore caches and dev artifacts inside the web app
+.next/
+node_modules/
+.swc/
+.DS_Store
+*.log
+*.local
+coverage/
+out/
+dist/
+tmp/

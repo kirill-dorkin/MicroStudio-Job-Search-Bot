@@ -1,9 +1,4 @@
 # Allow ONLY the web app to be uploaded/built
+# When deploying from repo root, ignore everything outside web
 /*
-!.vercelignore
-!vercel.json
 !web/**
-
-# Still exclude caches inside web
-web/.next/
-web/node_modules/
