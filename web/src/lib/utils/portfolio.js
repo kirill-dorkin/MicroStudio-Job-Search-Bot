@@ -2,18 +2,18 @@ import { capitalize } from './helper';
 
 export const app = {
   name: 'Remotive Jobs',
-  url: 'https://remotive-jobs.vercel.app',
-  github: 'https://github.com/vatsalsinghkv/remotive-jobs',
+  url: '',
+  github: '',
   image:
-    'https://user-images.githubusercontent.com/68834718/189035104-aa71647e-33e4-442a-a2f9-c0d50bba2db1.png',
+    '',
 };
 
 export const author = {
-  name: 'Vatsal Singh',
-  facebook: 'https://www.facebook.com/vatsalsinghkv',
-  instagram: 'https://www.instagram.com/vatsalsinghkv',
-  twitter: 'https://twitter.com/vatsalsinghkv',
-  github: 'https://github.com/vatsalsinghkv',
+  name: 'MicroStudio',
+  facebook: '',
+  instagram: '',
+  twitter: '',
+  github: '',
 };
 
 export const getJobSeoData = ({
