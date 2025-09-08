@@ -1,0 +1,13 @@
+{
+  "name": "@jobspy/bot-logic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "dependencies": {
+    "grammy": "1.26.1",
+    "papaparse": "5.4.1",
+    "dayjs": "1.11.13",
+    "@jobspy/fx": "workspace:*"
+  }
+}
