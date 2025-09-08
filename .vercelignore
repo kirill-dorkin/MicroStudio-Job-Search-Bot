@@ -1,0 +1,19 @@
+# Ignore everything by default
+/*
+
+# Keep Vercel config and the web app
+!.vercelignore
+!vercel.json
+!web/**
+
+# Exclude heavy/unnecessary items inside web
+web/node_modules
+web/.next
+
+# Local/dev artifacts
+.DS_Store
+.venv
+beta-bot/**
+.git
+.gitignore
+
