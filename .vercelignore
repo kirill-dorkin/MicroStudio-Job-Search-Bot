@@ -1,19 +1,14 @@
-# Ignore everything by default
-/*
+# Exclude only what we don't want to upload
+# Draft/other workspaces
+beta-bot/
+.venv/
+venv/
 
-# Keep Vercel config and the web app
-!.vercelignore
-!vercel.json
-!web/**
-
-# Exclude heavy/unnecessary items inside web
-web/node_modules
-web/.next
-
-# Local/dev artifacts
+# Git and OS junk
+.git/
 .DS_Store
-.venv
-beta-bot/**
-.git
-.gitignore
+*.log
 
+# Next.js build cache and deps (Vercel installs deps itself)
+web/.next/
+web/node_modules/
