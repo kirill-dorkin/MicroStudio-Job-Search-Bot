@@ -34,7 +34,8 @@ export const getServerSideProps = async (ctx) => {
     totalPages = getTotalPages(totalResults);
     jobs = getJobsPerPage(page, jobs);
   } catch (err) {
-    error = 'We could not reach the Remotive API right now. Please try again soon.';
+    error =
+      'We could not reach our job providers right now. Please try again soon.';
     console.error('Failed to load home page data', err);
   }
 

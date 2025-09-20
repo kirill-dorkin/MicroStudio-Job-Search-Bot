@@ -27,6 +27,16 @@ export const capitalize = (str = '') => {
   return `${str[0].toUpperCase()}${str.slice(1)}`;
 };
 
+export const slugify = (value = '') => {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
 export const formatCategoryName = (value = '') => {
   if (!value || typeof value !== 'string') return '';
   return value

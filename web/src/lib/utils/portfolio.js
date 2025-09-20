@@ -1,7 +1,7 @@
 import { capitalize } from './helper';
 
 export const app = {
-  name: 'Remotive Jobs',
+  name: 'MicroStudio Remote Jobs',
   url: '',
   github: '',
   image:
@@ -37,8 +37,9 @@ export const getJobSeoData = ({
   author: app.author,
   image: app.image,
   keywords: [
-    'remotive jobs',
     'remote jobs',
+    'arbeitnow jobs',
+    'remoteok jobs',
     `${name}`,
     `${company}`,
     `${category} jobs`,
@@ -53,14 +54,15 @@ export const getSeoData = (
   profiles = 'developer, customer support rep, product or sales professional'
 ) => ({
   title: `Remote Jobs in ${capitalize(categories)}`,
-  description: `Find the best remote job, working as a ${profiles}... All jobs are hand curated and allow remote work. We serve the best work from home jobs in popular categories. Talent is everywhere, work remotely today!`,
+  description:
+    `Find the best remote job, working as a ${profiles}... We aggregate openings from trusted sources like Remotive, RemoteOK, and Arbeitnow so you never miss an opportunity. Talent is everywhere, work remotely today!`,
   url: app.url,
   author: app.author,
   image: app.image,
   keywords: [
-    'remotive jobs',
     'remote jobs',
-    'github jobs',
+    'arbeitnow jobs',
+    'remoteok jobs',
     'work from home jobs',
     'programming jobs',
     'support jobs',

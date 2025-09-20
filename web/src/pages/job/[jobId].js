@@ -22,7 +22,8 @@ export const getServerSideProps = async (ctx) => {
     return {
       props: {
         job: null,
-        error: 'We could not reach the Remotive API right now. Please try again soon.',
+        error:
+          'We could not reach our job providers right now. Please try again soon.',
       },
     };
   }

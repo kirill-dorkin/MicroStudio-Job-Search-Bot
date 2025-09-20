@@ -1,7 +1,6 @@
-
-import axios from '../services/axios';
-import requests from '../services/requests';
+import providers, { providerMap } from '../providers';
 import { JOBS_PER_PAGE, MAX_LOCATIONS } from '../utils/constant';
+import { slugify } from '../utils/helper';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const jobListCache = new Map();
@@ -38,6 +37,66 @@ const fetchJobsRaw = async (cacheKey, fetcher) => {
   return jobs;
 };
 
+const isFullTimeType = (value) => {
+  if (!value) return false;
+  const normalized = value.toString().toLowerCase().replace(/[-\s]/g, '_');
+  return normalized === 'full_time';
+};
+
+const getDateValue = (value) => {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const sortByDateDesc = (jobs = []) =>
+  [...jobs].sort(
+    (a, b) => getDateValue(b?.publication_date) - getDateValue(a?.publication_date)
+  );
+
+const aggregateJobs = async ({ query = '', category = '' } = {}) => {
+  const responses = await Promise.all(
+    providers.map(async (provider) => {
+      if (typeof provider.fetchJobs !== 'function') return [];
+      try {
+        const jobs = await provider.fetchJobs({ query, category });
+        return Array.isArray(jobs) ? jobs : [];
+      } catch (error) {
+        const label = provider.PROVIDER_NAME || provider.PROVIDER_ID || 'unknown';
+        console.error(`Failed to load jobs from ${label}`, error);
+        return [];
+      }
+    })
+  );
+
+  const seen = new Set();
+  const combined = [];
+
+  responses
+    .flat()
+    .forEach((job) => {
+      if (!job || !job.id) return;
+      if (seen.has(job.id)) return;
+      seen.add(job.id);
+      combined.push(job);
+    });
+
+  const categorySlug = category && category !== 'all' ? category : '';
+
+  const filtered = categorySlug
+    ? combined.filter((job) => {
+        const slugs = Array.isArray(job.categorySlugs) ? job.categorySlugs : [];
+        if (slugs.includes(categorySlug)) return true;
+        if (!slugs.length && job.category) {
+          return slugify(job.category) === categorySlug;
+        }
+        return false;
+      })
+    : combined;
+
+  return sortByDateDesc(filtered);
+};
+
 const filter = ({
   jobs,
   fullTime = false,
@@ -45,16 +104,22 @@ const filter = ({
   otherLocations = [],
 }) => {
   const fullTimeFlag = Boolean(fullTime);
+  const normalizedLocation = location || 'all';
+
   return jobs.filter((job) => {
     const jobType = job?.job_type;
-    const jobLocation = job?.candidate_required_location || '';
-    return (
-      (!fullTimeFlag || jobType === 'full_time' || jobType === 'fulltime') &&
-      (location === 'all' ||
-        (location === 'others'
-          ? otherLocations.includes(jobLocation)
-          : jobLocation === location))
-    );
+    const jobLocation = (job?.candidate_required_location || '').trim();
+
+    if (fullTimeFlag && !isFullTimeType(jobType)) {
+      return false;
+    }
+
+    if (normalizedLocation === 'all') return true;
+    if (normalizedLocation === 'others') {
+      return otherLocations.includes(jobLocation);
+    }
+
+    return jobLocation === normalizedLocation;
   });
 };
 
@@ -80,15 +145,21 @@ export const getLocations = (jobs = []) => {
 
 const fetchAllJobs = (query = '') =>
   handleRequest(
-    () => axios.get(requests.all(query)),
+    async () => {
+      const jobs = await aggregateJobs({ query });
+      return { jobs };
+    },
     'Unable to load jobs. Please try again later.'
-  ).then((res) => res.data ?? res);
+  );
 
 const fetchJobsForCategory = (category = '', query = '') =>
   handleRequest(
-    () => axios.get(requests.categories(category, query)),
+    async () => {
+      const jobs = await aggregateJobs({ category, query });
+      return { jobs };
+    },
     'Unable to load jobs for this category.'
-  ).then((res) => res.data ?? res);
+  );
 
 export const getAllJobs = async (query = '', fullTime = false, location = 'all') => {
   const cacheKey = `all::${query || ''}`;
@@ -127,16 +198,67 @@ export const getJobsByCategory = async (
   };
 };
 
+const collectCategoriesFromJobs = (jobs = []) => {
+  const counts = new Map();
+
+  normalizeJobs(jobs).forEach((job) => {
+    const slugs = Array.isArray(job.categorySlugs) ? job.categorySlugs.slice() : [];
+    if ((!slugs || slugs.length === 0) && job.category) {
+      const fallback = slugify(job.category);
+      if (fallback) slugs.push(fallback);
+    }
+    slugs.forEach((slug) => {
+      if (!slug) return;
+      counts.set(slug, (counts.get(slug) || 0) + 1);
+    });
+  });
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([slug]) => slug);
+};
+
 export const getJobsCategories = async () => {
-  const response = await handleRequest(
-    () => axios.get(requests.categories()),
-    'Unable to load job categories.'
+  const cachedAll = jobListCache.get('all::');
+  if (isFresh(cachedAll) && cachedAll.value?.length) {
+    return collectCategoriesFromJobs(cachedAll.value);
+  }
+
+  const responses = await Promise.all(
+    providers.map(async (provider) => {
+      if (typeof provider.fetchCategories !== 'function') return [];
+      try {
+        const categories = await provider.fetchCategories();
+        return Array.isArray(categories) ? categories : [];
+      } catch (error) {
+        const label = provider.PROVIDER_NAME || provider.PROVIDER_ID || 'unknown';
+        console.error(`Failed to load categories from ${label}`, error);
+        return [];
+      }
+    })
   );
-  const categories = response.data?.jobs;
-  if (!Array.isArray(categories)) return [];
-  return categories
-    .map((category) => category?.slug)
-    .filter((slug) => typeof slug === 'string' && slug.length > 0);
+
+  const counts = new Map();
+  responses
+    .flat()
+    .forEach((slug) => {
+      if (!slug) return;
+      counts.set(slug, (counts.get(slug) || 0) + 1);
+    });
+
+  if (counts.size > 0) {
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([slug]) => slug);
+  }
+
+  const fallbackJobs = await aggregateJobs({});
+  if (fallbackJobs.length) {
+    jobListCache.set('all::', toCacheEntry(fallbackJobs));
+    return collectCategoriesFromJobs(fallbackJobs);
+  }
+
+  return [];
 };
 
 const findJobInCachedLists = (id) => {
@@ -150,31 +272,56 @@ const findJobInCachedLists = (id) => {
   return null;
 };
 
+const parseCompositeId = (value) => {
+  if (value === null || value === undefined) {
+    return { providerId: null, providerJobId: null };
+  }
+  const stringValue = value.toString();
+  const parts = stringValue.split('::');
+  if (parts.length < 2) {
+    return { providerId: null, providerJobId: stringValue };
+  }
+  const [providerId, ...rest] = parts;
+  return { providerId, providerJobId: rest.join('::') };
+};
+
 export const getJobById = async (id) => {
   if (!id) return null;
-  const cached = jobDetailCache.get(id);
+  const stringId = id.toString();
+  const cached = jobDetailCache.get(stringId);
   if (isFresh(cached)) {
     return cached.value;
   }
 
-  const fromLists = findJobInCachedLists(id);
+  const fromLists = findJobInCachedLists(stringId);
   if (fromLists) {
-    jobDetailCache.set(id, toCacheEntry(fromLists));
+    jobDetailCache.set(stringId, toCacheEntry(fromLists));
     return fromLists;
   }
 
-  const { url, params } = requests.job(id);
-  const response = await handleRequest(
-    () => axios.get(url, { params }),
+  const { providerId, providerJobId } = parseCompositeId(stringId);
+  if (!providerId || !providerJobId) {
+    const err = new Error('Job not found.');
+    throw err;
+  }
+
+  const provider = providerMap[providerId];
+  if (!provider || typeof provider.fetchJobById !== 'function') {
+    const err = new Error('Job not found.');
+    throw err;
+  }
+
+  const job = await handleRequest(
+    () => provider.fetchJobById(providerJobId),
     'Unable to load job details.'
   );
-  const data = response.data ?? response;
-  const job = data?.job || (Array.isArray(data?.jobs) ? data.jobs[0] : null);
+
   if (!job) {
     const err = new Error('Job not found.');
     throw err;
   }
-  jobDetailCache.set(id, toCacheEntry(job));
+
+  jobDetailCache.set(stringId, toCacheEntry(job));
   return job;
 };
 
