@@ -36,55 +36,11 @@ try:
 except Exception:
     pass
 
-# Python 3.13 changed ``contextlib.AsyncContextManager`` to use ``__slots__``.
-# python-telegram-bot 20.8 lacks a slot for ``__polling_cleanup_cb``, which
-# triggers ``AttributeError`` during initialization on Python 3.13. Install a
-# descriptor to store the attribute in a side dictionary so that Updater can
-# initialize correctly.
-from telegram.ext import _updater as _ptb_updater
-from telegram.ext import _jobqueue as _ptb_jobqueue
-
-if not hasattr(_ptb_updater.Updater, "_Updater__polling_cleanup_cb"):
-    # Updater doesn't support weak references, so store callbacks in a plain dict.
-    _cb_store: "Dict[_ptb_updater.Updater, Any]" = {}
-
-    class _CleanupCbDescriptor:
-        def __get__(self, instance, owner):  # type: ignore[override]
-            if instance is None:
-                return self
-            return _cb_store.get(instance)
-
-        def __set__(self, instance, value):  # type: ignore[override]
-            _cb_store[instance] = value
-
-        def __delete__(self, instance):  # type: ignore[override]
-            _cb_store.pop(instance, None)
-
-    setattr(
-        _ptb_updater.Updater,
-        "_Updater__polling_cleanup_cb",
-        _CleanupCbDescriptor(),
+if sys.version_info >= (3, 13):
+    raise RuntimeError(
+        "python-telegram-bot 20.x не совместим с Python 3.13. "
+        "Используйте Python 3.10–3.12 или обновите зависимости."
     )
-
-# python-telegram-bot's ``JobQueue`` tries to store a weak reference to the
-# application instance. ``Application`` in PTB 20.8 uses ``__slots__`` without a
-# ``__weakref__`` slot under Python 3.13, which makes it impossible to create a
-# weak reference and results in ``TypeError`` during initialization. Store a
-# strong reference instead so that the bot can start on Python 3.13.
-if not hasattr(_ptb_jobqueue.JobQueue.set_application, "__patched_no_weakref__"):
-    def _set_application(self, application):
-        self._application = application
-        self.scheduler.configure(**self.scheduler_configuration)
-
-    _set_application.__patched_no_weakref__ = True
-    _ptb_jobqueue.JobQueue.set_application = _set_application
-
-    def _get_application(self):
-        if self._application is None:
-            raise RuntimeError("No application was set for this JobQueue.")
-        return self._application
-
-    _ptb_jobqueue.JobQueue.application = property(_get_application)
 
 from .texts import t, label
 from .storage import (
@@ -1806,6 +1762,8 @@ def build_app() -> Application:
         ensure_rates(user)
         update_user(uid, user)
         await q.edit_message_text(t(lang, "currency_saved", currency=(val if val != "ANY" else "—")))
+        if user.get("fx_error"):
+            await q.message.reply_text(t(lang, "fx_refresh_failed", error=user["fx_error"]))
 
     app.add_handler(CommandHandler("currency", cmd_currency))
     app.add_handler(CallbackQueryHandler(cb_currency, pattern=r"^curset:"))

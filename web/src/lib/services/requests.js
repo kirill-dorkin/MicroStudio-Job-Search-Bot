@@ -13,6 +13,12 @@ const requests = {
       return `?category=${category}${query ? '&search=' + query : ''}`;
     return `/categories`;
   },
+  job(id) {
+    return {
+      url: '/',
+      params: { job_id: id },
+    };
+  },
 };
 
 export default requests;

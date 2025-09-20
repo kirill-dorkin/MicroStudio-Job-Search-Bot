@@ -7,25 +7,28 @@ const Error = ({ message, type = 'not-found', className }) => {
     name = 'web';
 
   switch (type) {
-    case 'not-found':
+    case 'api':
       img = imgNotFound;
+      name = 'web';
       break;
-
+    case 'not-found':
     default:
       img = imgNotFound;
       break;
   }
 
+  const classes = [styles['error'], className].filter(Boolean).join(' ');
+
   return (
-    <div className={styles['error']}>
+    <div className={classes}>
       <div className={styles['error__img']}>
-        <Image src={img} alt="Illustration" />
+        <Image src={img} alt='Illustration' />
       </div>
       <a
-        target="_blank"
-        rel="noreferrer"
+        target='_blank'
+        rel='noreferrer'
         href={`https://storyset.com/${name}`}
-        className="icon-attribute"
+        className='icon-attribute'
       >
         {name} illustrations by Storyset
       </a>

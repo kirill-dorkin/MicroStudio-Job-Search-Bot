@@ -1,6 +1,42 @@
+
 import axios from '../services/axios';
 import requests from '../services/requests';
 import { JOBS_PER_PAGE, MAX_LOCATIONS } from '../utils/constant';
+
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const jobListCache = new Map();
+const jobDetailCache = new Map();
+
+const isFresh = (entry) => entry && Date.now() - entry.timestamp < CACHE_TTL_MS;
+const toCacheEntry = (value) => ({ value, timestamp: Date.now() });
+
+const normalizeJobs = (jobs) => (Array.isArray(jobs) ? jobs : []);
+
+const handleRequest = async (fn, fallbackMessage) => {
+  try {
+    return await fn();
+  } catch (error) {
+    const message =
+      error?.message ||
+      error?.response?.data?.message ||
+      fallbackMessage ||
+      'Request failed.';
+    const wrapped = new Error(message);
+    wrapped.cause = error;
+    throw wrapped;
+  }
+};
+
+const fetchJobsRaw = async (cacheKey, fetcher) => {
+  const cached = jobListCache.get(cacheKey);
+  if (isFresh(cached)) {
+    return cached.value;
+  }
+  const data = await fetcher();
+  const jobs = normalizeJobs(data?.jobs);
+  jobListCache.set(cacheKey, toCacheEntry(jobs));
+  return jobs;
+};
 
 const filter = ({
   jobs,
@@ -8,34 +44,60 @@ const filter = ({
   location = 'all',
   otherLocations = [],
 }) => {
+  const fullTimeFlag = Boolean(fullTime);
   return jobs.filter((job) => {
+    const jobType = job?.job_type;
+    const jobLocation = job?.candidate_required_location || '';
     return (
-      (!fullTime || job.job_type === 'full_time') &&
+      (!fullTimeFlag || jobType === 'full_time' || jobType === 'fulltime') &&
       (location === 'all' ||
         (location === 'others'
-          ? otherLocations.includes(job.candidate_required_location)
-          : job.candidate_required_location === location))
+          ? otherLocations.includes(jobLocation)
+          : jobLocation === location))
     );
   });
 };
 
-/**
- * Fetches and returns the list of jobs
- * @returns {Array} - List of jobs
- * @async
- */
+export const getLocations = (jobs = []) => {
+  const locations = [];
+  const count = {};
 
-export const getAllJobs = async (
-  query = '',
-  fullTime = false,
-  location = 'all'
-) => {
-  const res = await axios.get(requests.all(query));
-  const locations = getLocations(res.data.jobs);
+  normalizeJobs(jobs).forEach((job) => {
+    const location = (job?.candidate_required_location || '').trim();
+    if (!location) return;
+    count[location] = count[location] ? count[location] + 1 : 1;
+    locations.push(location);
+  });
+
+  const uniqueLocations = [...new Set(locations)];
+  const sortedUniqueLocations = uniqueLocations.sort((a, b) => count[b] - count[a]);
+
+  return {
+    all: sortedUniqueLocations.slice(0, MAX_LOCATIONS),
+    others: sortedUniqueLocations.slice(MAX_LOCATIONS),
+  };
+};
+
+const fetchAllJobs = (query = '') =>
+  handleRequest(
+    () => axios.get(requests.all(query)),
+    'Unable to load jobs. Please try again later.'
+  ).then((res) => res.data ?? res);
+
+const fetchJobsForCategory = (category = '', query = '') =>
+  handleRequest(
+    () => axios.get(requests.categories(category, query)),
+    'Unable to load jobs for this category.'
+  ).then((res) => res.data ?? res);
+
+export const getAllJobs = async (query = '', fullTime = false, location = 'all') => {
+  const cacheKey = `all::${query || ''}`;
+  const rawJobs = await fetchJobsRaw(cacheKey, () => fetchAllJobs(query));
+  const locations = getLocations(rawJobs);
 
   return {
     jobs: filter({
-      jobs: res.data.jobs,
+      jobs: rawJobs,
       fullTime,
       otherLocations: locations.others,
       location,
@@ -44,25 +106,19 @@ export const getAllJobs = async (
   };
 };
 
-/**
- * Fetches and returns job by the given category
- * @param {String} category - Category for the job
- * @returns {Array} jobs- Jobs of particular category
- * @async
- */
-
 export const getJobsByCategory = async (
   category = '',
   query = '',
   fullTime = false,
   location = 'all'
 ) => {
-  const res = await axios.get(requests.categories(category, query));
-  const locations = getLocations(res.data.jobs);
+  const cacheKey = `category::${category || 'all'}::${query || ''}`;
+  const rawJobs = await fetchJobsRaw(cacheKey, () => fetchJobsForCategory(category, query));
+  const locations = getLocations(rawJobs);
 
   return {
     jobs: filter({
-      jobs: res.data.jobs,
+      jobs: rawJobs,
       fullTime,
       otherLocations: locations.others,
       location,
@@ -72,69 +128,58 @@ export const getJobsByCategory = async (
 };
 
 export const getJobsCategories = async () => {
-  const res = await axios.get(requests.categories());
-  const categories = res.data.jobs.map((category) => category.slug);
-  return categories;
-};
-
-export const getLocations = (jobs) => {
-  const locations = [];
-  const count = {};
-
-  jobs.forEach((job) => {
-    const location = job.candidate_required_location;
-    if (!location.trim().length) return;
-    count[location] = count[location] ? count[location] + 1 : 1;
-    locations.push(location);
-  });
-
-  const uniqueLocations = [...new Set(locations)];
-
-  // Sorting locations with having max jobs
-  const sortedUniqueLocations = uniqueLocations.sort(
-    (a, b) => count[b] - count[a]
+  const response = await handleRequest(
+    () => axios.get(requests.categories()),
+    'Unable to load job categories.'
   );
-
-  return {
-    all: sortedUniqueLocations.slice(0, MAX_LOCATIONS),
-    others: sortedUniqueLocations.slice(MAX_LOCATIONS, -1),
-  };
+  const categories = response.data?.jobs;
+  if (!Array.isArray(categories)) return [];
+  return categories
+    .map((category) => category?.slug)
+    .filter((slug) => typeof slug === 'string' && slug.length > 0);
 };
 
-/**
- * Fetches and returns job by the given id
- * @param {String} id - jobId for the job to be Found
- * @returns {Object} - Job
- * @async
- */
+const findJobInCachedLists = (id) => {
+  for (const entry of jobListCache.values()) {
+    if (!isFresh(entry)) continue;
+    const match = entry.value.find((job) => job?.id?.toString() === id.toString());
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+};
 
 export const getJobById = async (id) => {
-  const { jobs } = await getAllJobs();
-  const job = jobs.find((job) => job.id.toString() === id);
+  if (!id) return null;
+  const cached = jobDetailCache.get(id);
+  if (isFresh(cached)) {
+    return cached.value;
+  }
+
+  const fromLists = findJobInCachedLists(id);
+  if (fromLists) {
+    jobDetailCache.set(id, toCacheEntry(fromLists));
+    return fromLists;
+  }
+
+  const { url, params } = requests.job(id);
+  const response = await handleRequest(
+    () => axios.get(url, { params }),
+    'Unable to load job details.'
+  );
+  const data = response.data ?? response;
+  const job = data?.job || (Array.isArray(data?.jobs) ? data.jobs[0] : null);
+  if (!job) {
+    const err = new Error('Job not found.');
+    throw err;
+  }
+  jobDetailCache.set(id, toCacheEntry(job));
   return job;
 };
 
-/**
- * Returns jobs of the given page
- * @param {Number} page - page number
- * @param {Array} jobs - all the jobs of the given
- * @returns {Array} - Jobs of the given page n
- */
-
-export const getJobsPerPage = (page, jobs) => {
-  /*
-   * if page === 1
-   * Then we need to return array of jobs from 0 to 9
-   * start: 1 - 1 * jobs per page (10)
-   * start: 0 * 10 = 0
-   * end: 1 * jobs per page (10)
-   * end: 1 * 10 = 10 (10 will be excluded)
-   */
-
+export const getJobsPerPage = (page, jobs = []) => {
   const start = (page - 1) * JOBS_PER_PAGE;
   const end = page * JOBS_PER_PAGE;
-
-  return jobs.slice(start, end);
+  return normalizeJobs(jobs).slice(start, end);
 };
-
-// enf - export named function
