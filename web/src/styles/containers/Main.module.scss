@@ -1,14 +1,15 @@
 @use '../abstract/variables' as *;
 
 .main {
-  padding: 4.2rem 0;
-  padding-bottom: 2.2rem;
+  padding: 4.2rem 0 2.4rem;
   display: grid;
-  grid-gap: 3.2rem;
-  grid-template-columns: 1.25fr 3fr;
+  grid-gap: 4rem;
+  grid-template-columns: 1.2fr 3fr;
+  align-items: flex-start;
 
   @media only screen and (max-width: $md) {
     grid-template-columns: 1fr;
+    grid-gap: 3.2rem;
   }
 
   &__jobs {

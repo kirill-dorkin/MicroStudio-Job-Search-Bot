@@ -1,3 +1,42 @@
+@use '../abstract/variables' as *;
+
 .jobs {
-  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 2.4rem;
+    flex-wrap: wrap;
+    padding: 0 0.4rem;
+  }
+
+  &__eyebrow {
+    font-size: 1.3rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba($color-tertiary, 0.5);
+    margin-bottom: 0.6rem;
+  }
+
+  &__title {
+    font-size: clamp(2rem, 2.4vw, 2.8rem);
+    font-family: $font-display;
+    color: var(--color-primary);
+  }
+
+  &__summary {
+    font-size: 1.4rem;
+    color: rgba($color-tertiary, 0.65);
+    max-width: 32rem;
+  }
+
+  &__list {
+    display: grid;
+    list-style: none;
+    gap: 2rem;
+  }
 }

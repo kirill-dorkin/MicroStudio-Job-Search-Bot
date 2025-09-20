@@ -22,6 +22,7 @@ export const getServerSideProps = async (ctx) => {
   let locations = EMPTY_LOCATIONS;
   let categories = [];
   let totalPages = 0;
+  let totalResults = 0;
   let error = null;
 
   try {
@@ -29,10 +30,11 @@ export const getServerSideProps = async (ctx) => {
     jobs = allJobs.jobs;
     locations = allJobs.locations;
     categories = await getJobsCategories();
-    totalPages = getTotalPages(jobs.length);
+    totalResults = jobs.length;
+    totalPages = getTotalPages(totalResults);
     jobs = getJobsPerPage(page, jobs);
   } catch (err) {
-    error = err?.message || 'Unable to load jobs right now.';
+    error = 'We could not reach the Remotive API right now. Please try again soon.';
     console.error('Failed to load home page data', err);
   }
 
@@ -46,6 +48,7 @@ export const getServerSideProps = async (ctx) => {
       location,
       search: query,
       fullTime: Number(fullTime),
+      totalResults,
       error,
     },
   };
@@ -60,12 +63,13 @@ export default function Home({
   location,
   fullTime,
   search,
+  totalResults,
   error,
 }) {
   return (
     <>
       <SEO {...getSeoData()} />
-      <Hero categories={categories} search={search} />
+      <Hero categories={categories} search={search} totalResults={totalResults} />
       <main className={styles['main']}>
         <Filter
           className={styles['main__aside']}
@@ -76,6 +80,9 @@ export default function Home({
         <Jobs
           className={styles['main__jobs']}
           {...{ jobs, totalPages, currentPage }}
+          totalResults={totalResults}
+          searchTerm={search}
+          selectedCategory='all'
           error={error}
         />
       </main>

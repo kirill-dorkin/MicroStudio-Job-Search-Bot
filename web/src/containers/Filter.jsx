@@ -1,71 +1,135 @@
 import { useRouter } from 'next/router';
+import { useMemo, useState } from 'react';
 import Form from '../components/Form';
 import Input from '../components/Form/Input';
 import SearchBar from '../components/Form/SearchBar';
 import MutedText from '../components/MutedText';
 import Icon from '../components/Icon';
+import Button from '../components/Button';
 import styles from '../styles/containers/Filter.module.scss';
-import { useState } from 'react';
 import { MAX_LOCATIONS } from '../lib/utils/constant';
 
 const Filter = ({ className = '', fullTime, locations, selectedLocation }) => {
   const router = useRouter();
   const [searchLocation, setSearchLocation] = useState('');
-  const [allLocations] = useState([...locations.all, ...locations.others]);
+  const allLocations = useMemo(
+    () => [...locations.all, ...locations.others],
+    [locations.all, locations.others]
+  );
 
-  const searchedLocations = allLocations
-    .filter((l) => l.toLowerCase().includes(searchLocation.toLowerCase()))
-    .slice(0, MAX_LOCATIONS + 2);
+  const hasActiveFilters =
+    fullTime || (selectedLocation && selectedLocation !== 'all');
+
+  const searchedLocations = useMemo(() => {
+    const value = searchLocation.toLowerCase();
+    return allLocations
+      .filter((location) => location.toLowerCase().includes(value))
+      .slice(0, MAX_LOCATIONS + 2);
+  }, [allLocations, searchLocation]);
 
   const { all, others } = locations;
 
-  let locs = [];
-  if (others.length) {
-    locs = ['all', ...all, 'others'];
-  } else {
-    locs = ['all', ...all];
-  }
+  const availableLocations = useMemo(() => {
+    if (!all.length && !others.length) return ['all'];
+    if (others.length) {
+      return ['all', ...all, 'others'];
+    }
+    return ['all', ...all];
+  }, [all, others]);
 
-  const classes = `${styles.filter} ${className}`;
+  const classes = [styles.filter, className].filter(Boolean).join(' ');
 
-  const locationChangeHandler = (e) => {
-    router.query.page = 1;
-    router.query.location = e.target.value;
-    router.push(router);
+  const pushWithQuery = (nextQuery) => {
+    router.push({ pathname: router.pathname, query: nextQuery }, undefined, {
+      scroll: false,
+    });
+  };
+
+  const locationChangeHandler = (event) => {
+    const value = event.target.value;
+    const nextQuery = { ...router.query, page: 1 };
+    if (!value || value === 'all') {
+      delete nextQuery.location;
+    } else {
+      nextQuery.location = value;
+    }
+    pushWithQuery(nextQuery);
   };
 
   const locationSearchHandler = (location) => {
     setSearchLocation(location);
   };
 
-  const fullTimeChangeHandler = (e) => {
-    router.query.page = 1;
-    router.query.fullTime = e.target.checked ? 1 : 0;
-    router.push(router);
+  const fullTimeChangeHandler = (event) => {
+    const checked = event.target.checked;
+    const nextQuery = { ...router.query, page: 1 };
+    if (checked) {
+      nextQuery.fullTime = 1;
+    } else {
+      delete nextQuery.fullTime;
+    }
+    pushWithQuery(nextQuery);
   };
+
+  const clearFiltersHandler = () => {
+    const nextQuery = { ...router.query };
+    delete nextQuery.fullTime;
+    delete nextQuery.location;
+    delete nextQuery.page;
+    setSearchLocation('');
+    pushWithQuery(nextQuery);
+  };
+
+  const inputs = searchLocation ? searchedLocations : availableLocations;
+  const hasSearchQuery = searchLocation.trim().length > 0;
 
   return (
     <aside className={classes}>
-      <Input
-        type='checkbox'
-        name='fullTime'
-        label='Full time'
-        defaultChecked={fullTime}
-        onChange={fullTimeChangeHandler}
-      />
+      <div className={styles['filter__header']}>
+        <Input
+          type='checkbox'
+          name='fullTime'
+          label='Full time only'
+          defaultChecked={fullTime}
+          onChange={fullTimeChangeHandler}
+        />
+        <Button
+          type='button'
+          variant='link'
+          className={styles['filter__clear']}
+          onClick={clearFiltersHandler}
+          disabled={!hasActiveFilters}
+        >
+          Clear filters
+        </Button>
+      </div>
 
-      <MutedText className={styles['filter__heading']}>location</MutedText>
+      <MutedText className={styles['filter__heading']}>
+        Filter by location
+      </MutedText>
 
       <SearchBar
         placeholder='City, state, zip code or country'
         icon={<Icon />}
         onChange={locationSearchHandler}
+        value={searchLocation}
+        label='Filter jobs by location'
+        className={styles['filter__search']}
+        submitLabel='Filter'
+        inputId='location-search'
+        onSubmit={locationSearchHandler}
       />
+
+      {hasSearchQuery && (
+        <p className={styles['filter__results']}>
+          Showing {inputs.length} {inputs.length === 1 ? 'match' : 'matches'}
+        </p>
+      )}
 
       <Form
         className={styles['filter__form']}
         onChange={locationChangeHandler}
-        inputs={searchLocation ? searchedLocations : locs}
+        inputs={inputs}
         value={selectedLocation}
       />
     </aside>

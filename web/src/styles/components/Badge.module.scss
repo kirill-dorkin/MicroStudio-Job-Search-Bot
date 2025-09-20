@@ -4,21 +4,32 @@
   display: inline-flex;
   justify-content: center;
   align-items: center;
-
   width: fit-content;
   height: fit-content;
   padding: 0.4rem 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 1.2rem;
-  border-radius: 4px;
-
+  border-radius: 999px;
+  letter-spacing: 0.02em;
   color: $color-primary;
-  border: $color-primary solid 1px;
-  background: none;
+  border: 1px solid rgba($color-primary, 0.35);
+  background: rgba($color-primary, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 
-  &.fill {
-    color: $color-secondary;
-    border: $color-secondary solid 1px;
-    // background: $color-secondary;
+  &:hover,
+  &:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 0.6rem 1.4rem rgba($color-primary, 0.1);
   }
+}
+
+.badge--fill {
+  color: $color-light;
+  border-color: transparent;
+  background: linear-gradient(135deg, $color-secondary, lighten($color-secondary, 10%));
+}
+
+.badge--subtle {
+  color: rgba($color-primary, 0.8);
+  background: rgba($color-primary, 0.12);
 }

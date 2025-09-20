@@ -1,27 +1,28 @@
 @use '../abstract/mixins' as *;
+@use '../abstract/variables' as *;
 
 .pagination-button {
   @include btnReset;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3.6rem;
-  height: 3.6rem;
-  font-size: 12px;
-  color: var(--color-grey);
-  border: 1px solid var(--color-grey);
-  border-radius: 4px;
-  margin-right: 1.2rem;
+  width: 3.8rem;
+  height: 3.8rem;
+  font-size: 1.2rem;
+  color: rgba($color-tertiary, 0.6);
+  border: 1px solid rgba($color-primary, 0.12);
+  border-radius: 1.2rem;
+  background: rgba($color-light, 0.9);
+  box-shadow: 0 0.8rem 1.6rem rgba($color-primary, 0.06);
 
   &.disabled {
     cursor: not-allowed;
     &:hover,
     &:active,
     &:focus {
-      // all: unset;
-      color: var(--color-grey);
-      border-color: var(--color-grey);
-      background-color: transparent;
+      color: rgba($color-tertiary, 0.4);
+      border-color: rgba($color-primary, 0.1);
+      background-color: rgba($color-light, 0.6);
     }
   }
 
@@ -31,20 +32,21 @@
 
   &:hover,
   &:focus {
-    color: var(--color-secondary);
-    border-color: var(--color-secondary);
+    color: $color-secondary;
+    border-color: rgba($color-secondary, 0.4);
+    box-shadow: 0 1rem 2rem rgba($color-secondary, 0.15);
   }
 
   &.active,
   &:active {
-    background-color: var(--color-secondary);
-    border-color: var(--color-secondary);
-    color: var(--color-light);
+    background: linear-gradient(135deg, $color-secondary, lighten($color-secondary, 10%));
+    border-color: transparent;
+    color: $color-light;
+    box-shadow: 0 1.4rem 2.4rem rgba($color-secondary, 0.3);
   }
 }
 
 .dots {
-  margin-right: 1.2rem;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 2px;

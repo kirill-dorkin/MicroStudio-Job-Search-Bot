@@ -22,7 +22,27 @@ export const trimString = (str, len) => {
   return str;
 };
 
-export const capitalize = (str) => `${str[0].toUpperCase()}${str.slice(1)}`;
+export const capitalize = (str = '') => {
+  if (!str || typeof str !== 'string') return '';
+  return `${str[0].toUpperCase()}${str.slice(1)}`;
+};
+
+export const formatCategoryName = (value = '') => {
+  if (!value || typeof value !== 'string') return '';
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((word) => capitalize(word.toLowerCase()))
+    .join(' ');
+};
+
+export const formatNumber = (value, options = {}) => {
+  const formatter = new Intl.NumberFormat('en', {
+    notation: 'standard',
+    ...options,
+  });
+  return formatter.format(Number.isFinite(value) ? value : 0);
+};
 
 /**
  * Converts givin timestamp to formatted

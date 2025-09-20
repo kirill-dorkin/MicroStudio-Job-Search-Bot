@@ -5,11 +5,9 @@ const Logo = ({ name, href = '/' }) => {
   const [firstName, ...rest] = name.split(' ');
 
   return (
-    <Link href={href}>
-      <a className={classes.logo}>
-        <span className={classes['logo--main']}>{firstName} </span>
-        <span className={classes['logo--sub']}>{rest.join(' ')}</span>
-      </a>
+    <Link href={href} className={classes.logo}>
+      <span className={classes['logo--main']}>{firstName} </span>
+      <span className={classes['logo--sub']}>{rest.join(' ')}</span>
     </Link>
   );
 };

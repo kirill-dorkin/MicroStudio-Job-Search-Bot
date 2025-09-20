@@ -2,29 +2,25 @@
 
 .info {
   &__content {
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    gap: 0.6rem;
     font-weight: 500;
-    font-size: 1.2rem;
-    color: var(--color-grey);
+    font-size: 1.3rem;
+    color: rgba($color-tertiary, 0.65);
     overflow: hidden;
 
-    &:not(:last-of-type) {
-      margin-right: 3rem;
-
-      @media only screen and (max-width: $md) {
-        margin-right: 1.5rem;
-      }
-
-      @media only screen and (max-width: $md-sm) {
-        margin-right: 1rem;
-      }
+    svg {
+      font-size: 1.6rem;
+      color: rgba($color-tertiary, 0.55);
     }
   }
 
   &__text {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
