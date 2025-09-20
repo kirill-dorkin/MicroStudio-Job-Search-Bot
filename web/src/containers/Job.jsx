@@ -69,7 +69,7 @@ const Job = ({
         <MutedText className={styles['aside__apply']}>how to apply</MutedText>
 
         <div className={styles['aside__content']}>
-          <p>Please visit the Remotive page for more information</p>
+          <p>Please visit the job listing page for more information.</p>
 
           <Button
             type='link'
