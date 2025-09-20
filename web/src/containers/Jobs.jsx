@@ -5,9 +5,13 @@ import { timeFormatter } from '../lib/utils/helper';
 
 import styles from '../styles/containers/Jobs.module.scss';
 
-const Jobs = ({ jobs, totalPages, currentPage, className }) => {
-  const classes = `${styles['jobs']} ${className}`;
-  console.log({ jobs });
+const Jobs = ({ jobs = [], totalPages = 0, currentPage = 1, className = '', error }) => {
+  const classes = `${styles['jobs']} ${className}`.trim();
+
+  if (error) {
+    return <Error message={error} type='api' />;
+  }
+
   if (!jobs.length) {
     return <Error message='Oops!... No results found' />;
   }

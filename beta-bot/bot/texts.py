@@ -91,6 +91,7 @@ TEXTS = {
         "disclaimer": "Вакансии из внешних источников. Актуальность и отклик — на стороне источника. Разработано MicroStudio (Powered by JobSpy).",
         "err_long": "Слишком длинный ввод. Уложитесь в {n} символов.",
         "err": "На нашей стороне ошибка. Уже чиним. Попробуйте позже.",
+        "fx_refresh_failed": "Не удалось обновить курсы валют: {error}",
 
         # Marketing / About
         "about_title": "MicroStudio Job Search — ваш быстрый путь к подходящим вакансиям",
@@ -206,6 +207,7 @@ TEXTS = {
         "disclaimer": "Jobs come from external sources. Apply on the source site. Built by MicroStudio (Powered by JobSpy).",
         "err_long": "Input too long. Limit {n} chars.",
         "err": "Server error. Please try again later.",
+        "fx_refresh_failed": "Could not refresh currency rates: {error}",
 
         # Marketing / About
         "about_title": "MicroStudio Job Search — your fast track to relevant jobs",
