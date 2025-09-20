@@ -26,6 +26,7 @@ export const getServerSideProps = async (ctx) => {
   let locations = EMPTY_LOCATIONS;
   let categories = [];
   let totalPages = 0;
+  let totalResults = 0;
   let error = null;
 
   try {
@@ -33,10 +34,11 @@ export const getServerSideProps = async (ctx) => {
     jobs = result.jobs;
     locations = result.locations;
     categories = await getJobsCategories();
-    totalPages = getTotalPages(jobs.length);
+    totalResults = jobs.length;
+    totalPages = getTotalPages(totalResults);
     jobs = getJobsPerPage(page, jobs);
   } catch (err) {
-    error = err?.message || 'Unable to load jobs for this category right now.';
+    error = 'We could not reach the Remotive API right now. Please try again soon.';
     console.error('Failed to load category page data', err);
   }
 
@@ -51,6 +53,7 @@ export const getServerSideProps = async (ctx) => {
       location,
       categories,
       category,
+      totalResults,
       error,
     },
   };
@@ -66,6 +69,7 @@ export default function CategoryPage({
   locations,
   location,
   search,
+  totalResults,
   error,
 }) {
   return (
@@ -75,6 +79,7 @@ export default function CategoryPage({
         categories={categories}
         selectedCategory={category}
         search={search}
+        totalResults={totalResults}
       />
       <main className={styles['main']}>
         <Filter
@@ -86,6 +91,9 @@ export default function CategoryPage({
         <Jobs
           className={styles['main__jobs']}
           {...{ jobs, totalPages, currentPage }}
+          totalResults={totalResults}
+          searchTerm={search}
+          selectedCategory={category}
           error={error}
         />
       </main>

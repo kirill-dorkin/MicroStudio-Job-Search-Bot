@@ -110,5 +110,11 @@
       text-decoration: underline;
       outline: none;
     }
+
+    &:disabled {
+      color: rgba($color-grey, 0.7);
+      cursor: not-allowed;
+      text-decoration: none;
+    }
   }
 }

@@ -13,7 +13,7 @@ const Form = ({ className, onChange, inputs, value }) => {
           type='radio'
           name='location'
           checked={value === input}
-          label={input}
+          label={input === 'others' ? 'Other locations' : input}
           value={input}
           onChange={onChange}
         />

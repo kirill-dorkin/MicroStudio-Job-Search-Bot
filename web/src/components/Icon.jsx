@@ -11,9 +11,9 @@ const EarthIcon = ({ type = 'earth' }) => {
     case 'clock':
       return <FaRegClock className={classes} />;
     case 'money':
-      <FaRegClock className={classes} />;
+      return <FaDollarSign className={classes} />;
     default:
-      break;
+      return null;
   }
 };
 

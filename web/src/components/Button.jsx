@@ -17,10 +17,8 @@ const Button = ({
 
   if (type === 'link') {
     return (
-      <Link href={to}>
-        <a className={classes} {...props}>
-          {children}
-        </a>
+      <Link href={to} className={classes} {...props}>
+        {children}
       </Link>
     );
   }

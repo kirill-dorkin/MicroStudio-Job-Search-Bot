@@ -1,19 +1,23 @@
-import { getId } from '../../lib/utils/helper';
+import { formatCategoryName, getId } from '../../lib/utils/helper';
 import styles from '../../styles/components/Select.module.scss';
 
 const Select = ({ options, onChange, value }) => {
   const changeHandler = (e) => {
-    const value = e.target.value;
-    console.log(value);
-    onChange(value);
+    const selected = e.target.value;
+    onChange(selected);
   };
 
   return (
-    <select value={value} className={styles['select']} onChange={changeHandler}>
+    <select
+      value={value}
+      className={styles['select']}
+      onChange={changeHandler}
+      aria-label='Filter by job category'
+    >
       <option value="all">all categories</option>
       {options.map((category) => (
         <option key={getId()} value={category}>
-          {category.replace('-', ' ')}
+          {formatCategoryName(category)}
         </option>
       ))}
     </select>
